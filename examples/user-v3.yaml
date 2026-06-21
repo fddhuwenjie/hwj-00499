@@ -1,0 +1,416 @@
+openapi: 3.0.0
+info:
+  title: User Service API
+  version: 3.0.0
+  description: 用户服务 API v3 - 重大重构版
+
+servers:
+  - url: https://api.example.com/v3
+
+paths:
+  /users:
+    get:
+      summary: 获取用户列表
+      description: 分页获取用户列表，支持高级筛选和排序
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 1
+          description: 页码，从1开始
+        - name: pageSize
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 20
+          description: 每页数量，最大100
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, username, email]
+            default: createdAt
+          description: 排序字段
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: 排序方向
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, suspended]
+          description: 用户状态筛选
+      responses:
+        '200':
+          description: 成功返回用户列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      pageSize:
+                        type: integer
+                      total:
+                        type: integer
+                      totalPages:
+                        type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+        '429':
+          description: 请求过于频繁
+    post:
+      summary: 创建用户
+      description: 创建一个新用户账户，需要完整信息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: 用户创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+        '409':
+          description: 用户已存在
+        '429':
+          description: 请求过于频繁
+
+  /users/{userId}:
+    get:
+      summary: 获取用户详情
+      description: 根据用户ID获取用户详情信息
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户唯一标识ID
+      responses:
+        '200':
+          description: 成功返回用户信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '401':
+          description: 未授权
+        '404':
+          description: 用户不存在
+        '429':
+          description: 请求过于频繁
+    put:
+      summary: 更新用户
+      description: 更新用户基本信息
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+        '404':
+          description: 用户不存在
+        '429':
+          description: 请求过于频繁
+
+  /users/{userId}/profile:
+    get:
+      summary: 获取用户个人资料
+      description: 获取用户的详细个人资料
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户ID
+      responses:
+        '200':
+          description: 成功返回用户资料
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: 未授权
+        '404':
+          description: 用户不存在
+    put:
+      summary: 更新用户个人资料
+      description: 更新用户的详细个人资料
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+        '404':
+          description: 用户不存在
+
+  /users/{userId}/status:
+    patch:
+      summary: 更新用户状态
+      description: 管理员更新用户状态（激活/停用/封禁）
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, inactive, suspended]
+                reason:
+                  type: string
+              required:
+                - status
+      responses:
+        '200':
+          description: 状态更新成功
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限
+        '404':
+          description: 用户不存在
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 用户唯一ID
+        userId:
+          type: string
+          description: 用户业务ID
+        username:
+          type: string
+          description: 用户登录名
+        email:
+          type: string
+          description: 电子邮箱地址
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+          description: 用户状态
+        avatar:
+          type: string
+          description: 头像URL
+        createdAt:
+          type: string
+          format: date-time
+          description: 账户创建时间
+        updatedAt:
+          type: string
+          format: date-time
+          description: 最后更新时间
+      required:
+        - id
+        - userId
+        - username
+        - email
+        - status
+        - createdAt
+
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            phone:
+              type: string
+              description: 手机号码
+            lastLoginAt:
+              type: string
+              format: date-time
+              description: 最后登录时间
+            profile:
+              $ref: '#/components/schemas/UserProfile'
+
+    UserProfile:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: 用户ID
+        bio:
+          type: string
+          description: 个人简介
+        location:
+          type: string
+          description: 所在地
+        website:
+          type: string
+          description: 个人网站
+        birthday:
+          type: string
+          format: date
+          description: 生日
+        gender:
+          type: string
+          enum: [male, female, other]
+          description: 性别
+      required:
+        - userId
+
+    CreateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          description: 用户名
+        email:
+          type: string
+          format: email
+          description: 邮箱
+        password:
+          type: string
+          minLength: 8
+          description: 密码（至少8位，包含字母和数字）
+        phone:
+          type: string
+          description: 手机号码
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+          description: 初始状态
+      required:
+        - username
+        - email
+        - password
+        - phone
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 用户名
+        email:
+          type: string
+          description: 邮箱
+        avatar:
+          type: string
+          description: 头像URL
+        status:
+          type: string
+          enum: [active, inactive]
+          description: 用户状态
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        bio:
+          type: string
+          description: 个人简介
+        location:
+          type: string
+          description: 所在地
+        website:
+          type: string
+          description: 个人网站
+        birthday:
+          type: string
+          format: date
+          description: 生日
+        gender:
+          type: string
+          enum: [male, female, other]
+          description: 性别
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://api.example.com/oauth/authorize
+          tokenUrl: https://api.example.com/oauth/token
+          scopes:
+            read:users: 读取用户信息
+            write:users: 写用户信息
+            admin:users: 管理员权限
