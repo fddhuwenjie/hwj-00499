@@ -1,0 +1,352 @@
+openapi: 3.0.0
+info:
+  title: Order Service API
+  version: 2.0.0
+  description: 订单服务 API v2 - 支持优惠券和积分
+
+servers:
+  - url: https://api.example.com/orders/v2
+
+paths:
+  /orders:
+    get:
+      summary: 获取订单列表
+      description: 查询当前用户的订单列表，支持多维度筛选
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, shipped, completed, cancelled, refunded]
+          description: 订单状态筛选，可多选逗号分隔
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: 每页数量
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: 开始日期
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: 结束日期
+      responses:
+        '200':
+          description: 成功返回订单列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+        '401':
+          description: 未授权
+        '403':
+          description: 无权限
+    post:
+      summary: 创建订单
+      description: 创建一个新订单，支持优惠券和积分抵扣
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: 订单创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+        '409':
+          description: 库存不足
+
+  /orders/{orderId}:
+    get:
+      summary: 获取订单详情
+      description: 根据订单ID获取订单详情
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 订单ID
+      responses:
+        '200':
+          description: 成功返回订单详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '404':
+          description: 订单不存在
+        '401':
+          description: 未授权
+    put:
+      summary: 更新订单
+      description: 更新订单信息
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 订单ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 请求参数错误
+        '404':
+          description: 订单不存在
+
+  /orders/{orderId}/pay:
+    post:
+      summary: 订单支付
+      description: 对订单进行支付操作
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 订单ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentMethod:
+                  type: string
+                  enum: [wechat, alipay, card]
+                  description: 支付方式
+              required:
+                - paymentMethod
+      responses:
+        '200':
+          description: 支付成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: 请求参数错误
+        '404':
+          description: 订单不存在
+        '409':
+          description: 订单状态不允许支付
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 订单ID
+        orderNo:
+          type: string
+          description: 订单编号
+        userId:
+          type: string
+          description: 用户ID
+        status:
+          type: string
+          enum: [pending, paid, shipped, completed, cancelled, refunded]
+          description: 订单状态
+        totalAmount:
+          type: number
+          description: 订单总金额（分）
+        discountAmount:
+          type: number
+          description: 优惠金额
+        payAmount:
+          type: number
+          description: 实付金额
+        itemCount:
+          type: integer
+          description: 商品数量
+        createdAt:
+          type: string
+          format: date-time
+          description: 创建时间
+      required:
+        - id
+        - orderNo
+        - userId
+        - status
+        - totalAmount
+        - payAmount
+        - createdAt
+
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            shippingAddress:
+              $ref: '#/components/schemas/Address'
+            couponId:
+              type: string
+              description: 使用的优惠券ID
+            pointsUsed:
+              type: integer
+              description: 使用的积分数
+            remark:
+              type: string
+              description: 订单备注
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          description: 商品ID
+        productName:
+          type: string
+          description: 商品名称
+        productImage:
+          type: string
+          description: 商品图片
+        quantity:
+          type: integer
+          description: 数量
+        price:
+          type: number
+          description: 单价
+        subtotal:
+          type: number
+          description: 小计
+      required:
+        - productId
+        - productName
+        - quantity
+        - price
+
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        province:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        detail:
+          type: string
+      required:
+        - name
+        - phone
+        - province
+        - city
+        - district
+        - detail
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+              skuId:
+                type: string
+            required:
+              - productId
+              - quantity
+          description: 订单商品列表
+        addressId:
+          type: string
+          description: 收货地址ID
+        couponId:
+          type: string
+          description: 优惠券ID
+        points:
+          type: integer
+          description: 使用积分数量
+        remark:
+          type: string
+          description: 订单备注
+      required:
+        - items
+        - addressId
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        addressId:
+          type: string
+          description: 收货地址ID
+        remark:
+          type: string
+          description: 订单备注
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key

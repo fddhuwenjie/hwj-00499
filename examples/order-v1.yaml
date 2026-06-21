@@ -1,0 +1,221 @@
+openapi: 3.0.0
+info:
+  title: Order Service API
+  version: 1.0.0
+  description: 订单服务 API v1
+
+servers:
+  - url: https://api.example.com/orders/v1
+
+paths:
+  /orders:
+    get:
+      summary: 获取订单列表
+      description: 查询当前用户的订单列表
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, shipped, completed, cancelled]
+          description: 订单状态筛选
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码
+      responses:
+        '200':
+          description: 成功返回订单列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        '401':
+          description: 未授权
+    post:
+      summary: 创建订单
+      description: 创建一个新订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: 订单创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 请求参数错误
+        '401':
+          description: 未授权
+
+  /orders/{orderId}:
+    get:
+      summary: 获取订单详情
+      description: 根据订单ID获取订单详情
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 订单ID
+      responses:
+        '200':
+          description: 成功返回订单详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: 订单不存在
+        '401':
+          description: 未授权
+    put:
+      summary: 更新订单
+      description: 更新订单信息
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 订单ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 请求参数错误
+        '404':
+          description: 订单不存在
+    delete:
+      summary: 取消订单
+      description: 取消指定订单
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 订单ID
+      responses:
+        '204':
+          description: 取消成功
+        '404':
+          description: 订单不存在
+        '400':
+          description: 订单状态不允许取消
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 订单ID
+        userId:
+          type: string
+          description: 用户ID
+        status:
+          type: string
+          enum: [pending, paid, shipped, completed, cancelled]
+          description: 订单状态
+        totalAmount:
+          type: number
+          description: 订单总金额
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        createdAt:
+          type: string
+          format: date-time
+          description: 创建时间
+      required:
+        - id
+        - userId
+        - status
+        - totalAmount
+        - items
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          description: 商品ID
+        productName:
+          type: string
+          description: 商品名称
+        quantity:
+          type: integer
+          description: 数量
+        price:
+          type: number
+          description: 单价
+      required:
+        - productId
+        - quantity
+        - price
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+            required:
+              - productId
+              - quantity
+          description: 订单商品列表
+        addressId:
+          type: string
+          description: 收货地址ID
+      required:
+        - items
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        addressId:
+          type: string
+          description: 收货地址ID
+        remark:
+          type: string
+          description: 订单备注
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

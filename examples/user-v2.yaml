@@ -1,0 +1,254 @@
+openapi: 3.0.0
+info:
+  title: User Service API
+  version: 2.0.0
+  description: 用户服务 API v2 - 增强版
+
+servers:
+  - url: https://api.example.com/v2
+
+paths:
+  /users:
+    get:
+      summary: 获取用户列表
+      description: 分页获取用户列表，支持排序和筛选
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: 页码，从1开始
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: 每页数量，最大100
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, username]
+            default: createdAt
+          description: 排序字段
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 搜索关键词
+      responses:
+        '200':
+          description: 成功返回用户列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  list:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+        '400':
+          description: 请求参数错误
+        '429':
+          description: 请求过于频繁
+    post:
+      summary: 创建用户
+      description: 创建一个新用户账户
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: 用户创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 请求参数错误
+        '429':
+          description: 请求过于频繁
+
+  /users/{id}:
+    get:
+      summary: 获取用户详情
+      description: 根据ID获取用户详情信息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户唯一标识ID
+      responses:
+        '200':
+          description: 成功返回用户信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: 用户不存在
+        '429':
+          description: 请求过于频繁
+    put:
+      summary: 更新用户
+      description: 更新用户基本信息
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 请求参数错误
+        '404':
+          description: 用户不存在
+        '429':
+          description: 请求过于频繁
+
+  /users/{id}/profile:
+    get:
+      summary: 获取用户个人资料
+      description: 获取用户的详细个人资料
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 用户ID
+      responses:
+        '200':
+          description: 成功返回用户资料
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: 用户不存在
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 用户唯一ID
+        username:
+          type: string
+          description: 用户登录名
+        email:
+          type: string
+          description: 电子邮箱地址
+        age:
+          type: string
+          description: 年龄（字符串格式）
+        avatar:
+          type: string
+          description: 头像URL
+        createdAt:
+          type: string
+          format: date-time
+          description: 账户创建时间
+        updatedAt:
+          type: string
+          format: date-time
+          description: 最后更新时间
+      required:
+        - id
+        - username
+        - email
+        - createdAt
+
+    UserProfile:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: 用户ID
+        bio:
+          type: string
+          description: 个人简介
+        location:
+          type: string
+          description: 所在地
+        website:
+          type: string
+          description: 个人网站
+
+    CreateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 用户名
+        email:
+          type: string
+          description: 邮箱
+        password:
+          type: string
+          description: 密码（至少8位）
+        age:
+          type: string
+          description: 年龄
+        phone:
+          type: string
+          description: 手机号码
+      required:
+        - username
+        - email
+        - password
+        - phone
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 用户名
+        email:
+          type: string
+          description: 邮箱
+        age:
+          type: string
+          description: 年龄
+        avatar:
+          type: string
+          description: 头像URL
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
